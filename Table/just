@@ -1,0 +1,954 @@
+import React, { useState, useContext, useEffect } from "react";
+import { ProductContext } from "../context/ProductContext";
+import AdminLayout from "../components/AdminLayout";
+import { useNavigate } from "react-router-dom";
+
+export default function Admin() {
+  const {
+    products,
+    deleteProduct,
+    fetchProducts,
+    addProduct,
+    updateProduct,
+  } = useContext(ProductContext);
+
+
+  /* ================= ADD PRODUCT STATE ================= */
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    category: "",
+    image: null,
+    offerTag: null,
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  /* ================= EDIT STATE ================= */
+  const [editId, setEditId] = useState(null);
+
+  const [editForm, setEditForm] = useState({
+    name: "",
+    price: "",
+    category: "",
+    image: null,
+    offerTag: null,
+  });
+
+  /* ================= CATEGORY ================= */
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState("");
+
+  /* ================= BANNERS ================= */
+  const [bannerImage, setBannerImage] = useState(null);
+  const [banners, setBanners] = useState([]);
+
+  const [productSearch, setProductSearch] = useState("");
+
+  /* ================= FETCH ================= */
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/banners`)
+      .then((res) => res.json())
+      .then(setBanners);
+
+      fetch(`${import.meta.env.VITE_API_URL}/api/categories`)
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("categories:", data); // 👈 ADD HERE
+      setCategories(data);
+    });
+}, []);
+
+  /* ================= ADD PRODUCT ================= */
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!form.image) {
+    return alert("Please select image");
+  }
+
+  setLoading(true);
+
+  try {
+    const formData = new FormData();
+
+    formData.append("name", form.name.trim());
+    formData.append("price", Number(form.price));
+    formData.append("category", form.category);
+    formData.append("image", form.image);
+    formData.append("offerTag", form.offerTag || "");
+
+    const result = await addProduct(formData);
+
+    if (!result?.success) {
+      return;
+    }
+
+    alert("Product added ✅");
+
+    setForm({
+      name: "",
+      price: "",
+      category: "",
+      image: null,
+      offerTag: null,
+    });
+
+  } catch (err) {
+    console.log(err);
+    alert("Server error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  /* ================= START EDIT ================= */
+  const startEdit = (product) => {
+    setEditId(product._id);
+
+    setEditForm({
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      image: null,
+      offerTag: product.offerTag || null,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+  };
+
+  /* ================= SAVE EDIT ================= */
+const saveEdit = async () => {
+  try {
+    const formData = new FormData();
+
+    formData.append("name", editForm.name);
+    formData.append("price", editForm.price);
+    formData.append("category", editForm.category);
+
+    if (editForm.image) {
+      formData.append("image", editForm.image);
+    }
+
+    formData.append(
+      "offerTag",
+      editForm.offerTag || ""
+    );
+
+    const result = await updateProduct(
+      editId,
+      formData
+    );
+
+    if (!result?.success) {
+      return;
+    }
+
+    alert("Product updated ✅");
+
+    setEditId(null);
+
+  } catch (err) {
+    console.log(err);
+    alert("Server error");
+  }
+};
+
+  /* ================= CATEGORY ================= */
+  const addCategory = async () => {
+    if (!newCategory.trim()) return;
+
+    const res = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/categories`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newCategory.trim(),
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    setCategories((prev) => [...prev, data]);
+
+    setNewCategory("");
+  };
+
+  const deleteCategory = async (id) => {
+    if (!window.confirm("Delete category?")) return;
+
+    await fetch(
+      `${import.meta.env.VITE_API_URL}/api/categories/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    setCategories((prev) =>
+      prev.filter((c) => c._id !== id)
+    );
+  };
+
+  /* ================= BANNERS ================= */
+  const uploadBanner = async () => {
+    if (!bannerImage) return alert("Select image");
+
+    const formData = new FormData();
+
+    formData.append("image", bannerImage);
+
+    const res = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/banners`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await res.json();
+
+    setBanners((prev) => [data, ...prev]);
+
+    setBannerImage(null);
+  };
+
+  const deleteBanner = async (id) => {
+    if (!window.confirm("Delete banner?")) return;
+
+    await fetch(
+      `${import.meta.env.VITE_API_URL}/api/banners/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    setBanners((prev) =>
+      prev.filter((b) => b._id !== id)
+    );
+  };
+
+  const navigate = useNavigate();
+
+  return (
+    <AdminLayout>
+
+      {/* ================= HEADER ================= */}
+      <div
+        className="
+        flex flex-col lg:flex-row
+        lg:items-center lg:justify-between
+        gap-4 mb-8
+      "
+      >
+
+        <div>
+
+          <h1 className="text-4xl font-black tracking-tight text-[#532915]">
+            Admin Dashboard
+          </h1>
+
+          <p className="text-gray-500 mt-2">
+            Manage products, banners & users professionally
+          </p>
+
+        </div>
+
+        <button
+          onClick={() => navigate("/admin-users")}
+          className="
+          flex items-center gap-3
+          px-6 py-3
+          rounded-2xl
+          bg-gradient-to-r from-[#67b7ff] to-[#8dd2ff]
+          text-white
+          font-bold
+          shadow-[0_12px_30px_rgba(103,183,255,0.25)]
+          hover:-translate-y-1
+          hover:shadow-[0_16px_35px_rgba(103,183,255,0.35)]
+          transition-all duration-300
+        "
+        >
+
+          <span
+            className="
+            w-10 h-10 rounded-xl
+            bg-white/20
+            flex items-center justify-center
+          "
+          >
+            👥
+          </span>
+
+          Manage Users
+
+        </button>
+
+      </div>
+
+      {/* ================= MAIN GRID ================= */}
+      <div className="grid xl:grid-cols-3 gap-6">
+
+        {/* ================= ADD PRODUCT ================= */}
+        <div
+          className="
+          bg-white/90 backdrop-blur-xl
+          border border-[#edf1f1]
+          rounded-[30px]
+          shadow-[0_15px_40px_rgba(0,0,0,0.05)]
+          p-6
+        "
+        >
+
+          <div className="flex items-center gap-3 mb-6">
+
+            <div
+              className="
+              w-14 h-14 rounded-2xl
+              bg-gradient-to-br from-[#efffff] to-[#f4fffb]
+              flex items-center justify-center
+              text-2xl
+            "
+            >
+              ➕
+            </div>
+
+            <div>
+
+              <h2 className="text-2xl font-bold text-gray-800">
+                Add Product
+              </h2>
+
+              <p className="text-sm text-gray-500">
+                Upload fresh grocery items
+              </p>
+
+            </div>
+
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
+
+            <input
+              placeholder="Product Name"
+              value={form.name}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  name: e.target.value,
+                })
+              }
+              className="
+              w-full h-[54px]
+              rounded-2xl
+              border border-[#e7ecec]
+              bg-[#fbffff]
+              px-5
+              outline-none
+              focus:ring-4 focus:ring-[#8EEBEC30]
+            "
+              required
+            />
+
+            <input
+              type="number"
+              placeholder="Price"
+              value={form.price}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  price: e.target.value,
+                })
+              }
+              className="
+              w-full h-[54px]
+              rounded-2xl
+              border border-[#e7ecec]
+              bg-[#fbffff]
+              px-5
+              outline-none
+              focus:ring-4 focus:ring-[#8EEBEC30]
+            "
+              required
+            />
+
+{/* ================= CATEGORY INPUT (FIXED) ================= */}
+<div className="flex flex-col gap-2">
+
+  <select
+    value={form.category}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        category: e.target.value,
+      })
+    }
+    className="
+      w-full h-[54px]
+      rounded-2xl
+      border border-[#e7ecec]
+      bg-[#fbffff]
+      px-5
+      outline-none
+      focus:ring-4 focus:ring-[#8EEBEC30]
+    "
+    required
+  >
+    <option value="">Select Category</option>
+
+    {categories.map((cat) => (
+      <option key={cat._id} value={cat.name}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+
+  {/* OPTIONAL: allow manual typing fallback */}
+  <input
+    type="text"
+    placeholder="Or type custom category"
+    value={form.category}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        category: e.target.value,
+      })
+    }
+    className="
+      w-full h-[45px]
+      rounded-2xl
+      border border-[#e7ecec]
+      bg-[#fbffff]
+      px-5
+      outline-none
+      text-sm
+    "
+  />
+
+</div>
+
+
+            <input
+              type="file"
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  image: e.target.files[0],
+                })
+              }
+              className="
+              w-full
+              rounded-2xl
+              border border-dashed border-[#cfe5e5]
+              bg-[#fbffff]
+              px-4 py-4
+              text-sm
+            "
+              required
+            />
+
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={form.offerTag === "today"}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    offerTag: e.target.checked ? "today" : null,
+                  })
+                }
+              />
+
+              🏷️ Add to Offer for the Day
+            </label>
+
+            <button
+              disabled={loading}
+              className="
+              w-full h-[56px]
+              rounded-2xl
+              bg-gradient-to-r
+              from-[#7ce9eb]
+              to-[#8ef6c7]
+              text-gray-900
+              font-bold
+              shadow-[0_12px_30px_rgba(142,235,236,0.35)]
+              hover:-translate-y-1
+              transition-all duration-300
+            "
+            >
+              {loading
+                ? "Adding..."
+                : "Add Product"}
+            </button>
+
+          </form>
+
+        </div>
+
+        {/* ================= PRODUCTS ================= */}
+        <div
+          className="
+          xl:col-span-2
+          bg-white/90 backdrop-blur-xl
+          border border-[#edf1f1]
+          rounded-[30px]
+          shadow-[0_15px_40px_rgba(0,0,0,0.05)]
+          p-6
+        "
+        >
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+
+            <div>
+
+              <h2 className="text-2xl font-bold text-gray-800">
+                Products
+              </h2>
+
+              <p className="text-sm text-gray-500">
+                Total Products: {products.length}
+              </p>
+
+            </div>
+
+            {/* SEARCH */}
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={productSearch}
+              onChange={(e) =>
+                setProductSearch(e.target.value)
+              }
+              className="
+              w-full md:w-[280px]
+              h-[48px]
+              rounded-2xl
+              border border-[#e7ecec]
+              bg-[#fbffff]
+              px-5
+              outline-none
+              focus:ring-4 focus:ring-[#8EEBEC30]
+              text-sm
+            "
+            />
+
+          </div>
+
+          <div className="max-h-[700px] overflow-y-auto pr-2 space-y-4">
+
+            {products.length === 0 ? (
+              <p className="text-gray-500">
+                No products
+              </p>
+            ) : (
+              products
+                .filter((p) =>
+                  p.name
+                    .toLowerCase()
+                    .includes(productSearch.toLowerCase())
+                )
+                .map((p) => (
+                  <div
+                    key={p._id}
+                    className="
+                    bg-[#fcffff]
+                    border border-[#edf1f1]
+                    rounded-3xl
+                    p-4
+                    hover:shadow-lg
+                    transition-all duration-300
+                  "
+                  >
+
+                    {editId === p._id ? (
+                      <div className="space-y-3">
+
+                        <input
+                          value={editForm.name}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              name: e.target.value,
+                            })
+                          }
+                          className="
+                          w-full h-[50px]
+                          rounded-2xl
+                          border border-[#e7ecec]
+                          px-4
+                        "
+                        />
+
+                        <input
+                          value={editForm.price}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              price: e.target.value,
+                            })
+                          }
+                          className="
+                          w-full h-[50px]
+                          rounded-2xl
+                          border border-[#e7ecec]
+                          px-4
+                        "
+                        />
+
+                        <input
+                          value={editForm.category}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              category: e.target.value,
+                            })
+                          }
+                          className="
+                          w-full h-[50px]
+                          rounded-2xl
+                          border border-[#e7ecec]
+                          px-4
+                        "
+                        />
+
+                        <input
+                          type="file"
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              image: e.target.files[0],
+                            })
+                          }
+                        />
+
+                        <label className="flex items-center gap-2 text-sm font-medium mt-2">
+                          <input
+                            type="checkbox"
+                            checked={editForm.offerTag === "today"}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                offerTag: e.target.checked ? "today" : null,
+                              })
+                            }
+                          />
+
+                          🏷️ Offer for the Day
+                        </label>
+
+                        <div className="flex gap-3 pt-2">
+
+                          <button
+                            onClick={saveEdit}
+                            className="
+                            px-5 py-2.5
+                            rounded-xl
+                            bg-green-500
+                            text-white
+                            font-semibold
+                          "
+                          >
+                            Save
+                          </button>
+
+                          <button
+                            onClick={cancelEdit}
+                            className="
+                            px-5 py-2.5
+                            rounded-xl
+                            bg-gray-300
+                            font-semibold
+                          "
+                          >
+                            Cancel
+                          </button>
+
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div
+                        className="
+                        flex flex-col sm:flex-row
+                        sm:items-center sm:justify-between
+                        gap-4
+                      "
+                      >
+
+                        {/* PRODUCT INFO */}
+                        <div className="flex items-center gap-4">
+
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}${p.thumbnail || p.image}`}
+                            alt={p.name}
+                            loading="lazy"
+                            decoding="async"
+                            width="80"
+                            height="80"
+                            className="
+                            w-20 h-20
+                            rounded-2xl
+                            object-cover
+                            border border-[#edf1f1]
+                            bg-white
+                          "
+                          />
+
+                          <div>
+
+                            <h3 className="font-bold text-lg text-gray-800">
+                              {p.name}
+                            </h3>
+
+                            <div className="flex flex-wrap gap-2 mt-2">
+
+                              <span
+                                className="
+                                px-3 py-1
+                                rounded-full
+                                bg-[#efffff]
+                                text-[#1d7b80]
+                                text-sm font-medium
+                              "
+                              >
+                                ₹{p.price}
+                              </span>
+
+                              <span
+                                className="
+                                px-3 py-1
+                                rounded-full
+                                bg-[#f4fff3]
+                                text-[#23904f]
+                                text-sm font-medium
+                              "
+                              >
+                                {p.category}
+                              </span>
+
+                              {p.offerTag === "today" && (
+                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">
+                                  🏷️ Offer
+                                </span>
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                        {/* ACTIONS */}
+                        <div className="flex gap-3">
+
+                          <button
+                            onClick={() => startEdit(p)}
+                            className="
+                            px-5 py-2.5
+                            rounded-2xl
+                            bg-gradient-to-r
+                            from-[#67b7ff]
+                            to-[#8dd2ff]
+                            text-white
+                            font-semibold
+                            shadow-md
+                          "
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              deleteProduct(p._id)
+                            }
+                            className="
+                            px-5 py-2.5
+                            rounded-2xl
+                            bg-gradient-to-r
+                            from-[#ff6b6b]
+                            to-[#ff8c8c]
+                            text-white
+                            font-semibold
+                            shadow-md
+                          "
+                          >
+                            Delete
+                          </button>
+
+                        </div>
+
+                      </div>
+                    )}
+
+                  </div>
+                ))
+            )}
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div className="flex gap-3 mb-4">
+  <input
+    type="text"
+    placeholder="Add new category"
+    value={newCategory}
+    onChange={(e) => setNewCategory(e.target.value)}
+    className="w-full h-[50px] rounded-xl border px-4"
+  />
+
+  <button
+    onClick={addCategory}
+    className="px-6 rounded-xl bg-green-500 text-white"
+  >
+    Add
+  </button>
+</div>
+
+      {/* ================= BANNER SECTION ================= */}
+      <div
+        className="
+        mt-8
+        bg-white/90 backdrop-blur-xl
+        border border-[#edf1f1]
+        rounded-[30px]
+        shadow-[0_15px_40px_rgba(0,0,0,0.05)]
+        p-6
+      "
+      >
+
+        <div className="flex items-center gap-3 mb-6">
+
+          <div
+            className="
+            w-14 h-14 rounded-2xl
+            bg-gradient-to-br from-[#eefcff] to-[#f2fffb]
+            flex items-center justify-center
+            text-2xl
+          "
+          >
+            🖼️
+          </div>
+
+          <div>
+
+            <h2 className="text-2xl font-bold text-gray-800">
+              Banner Management
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              Upload promotional banners
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* UPLOAD */}
+        <div
+          className="
+          flex flex-col md:flex-row
+          gap-4 mb-6
+        "
+        >
+
+          <input
+            type="file"
+            onChange={(e) =>
+              setBannerImage(e.target.files[0])
+            }
+            className="
+            flex-1
+            rounded-2xl
+            border border-dashed border-[#cfe5e5]
+            bg-[#fbffff]
+            px-4 py-4
+            text-sm
+          "
+          />
+
+          <button
+            onClick={uploadBanner}
+            className="
+            px-6 py-3
+            rounded-2xl
+            bg-gradient-to-r
+            from-[#7ce9eb]
+            to-[#8ef6c7]
+            text-gray-900
+            font-bold
+            shadow-md
+          "
+          >
+            Upload Banner
+          </button>
+
+        </div>
+
+        {/* BANNERS */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+
+          {banners.map((b) => (
+            <div
+              key={b._id}
+              className="
+              relative group
+              rounded-3xl
+              overflow-hidden
+              border border-[#edf1f1]
+              shadow-sm
+              bg-white
+            "
+            >
+
+              <img
+                src={b.image}
+                alt="banner"
+                className="
+                w-full h-40
+                object-cover
+                group-hover:scale-105
+                transition duration-500
+              "
+              />
+
+              <button
+                onClick={() =>
+                  deleteBanner(b._id)
+                }
+                className="
+                absolute top-3 right-3
+                bg-red-500
+                text-white
+                px-3 py-1.5
+                rounded-xl
+                text-xs font-semibold
+                opacity-0 group-hover:opacity-100
+                transition
+              "
+              >
+                Delete
+              </button>
+
+            </div>
+          ))}
+
+        </div>
+
+      </div>
+
+    </AdminLayout>
+  );
+}
